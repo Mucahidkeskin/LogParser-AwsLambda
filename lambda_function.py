@@ -9,45 +9,46 @@ s3_client = boto3.client('s3')
 s3_resource = boto3.resource('s3')
 dynamodb_client = boto3.resource('dynamodb')
 
-
 def lambda_handler(event, context):
-    # get bucket and file name
+    logFound=False
+    #get bucket and file name
     bucket = event['Records'][0]['s3']['bucket']['name']
-    eventFileName = event['Records'][0]['s3']['object']['key'].replace("%40", "@")
+    eventFileName = event['Records'][0]['s3']['object']['key'].replace("%40","@")
     print(eventFileName)
-
+    
     if (".zip" in eventFileName):
         zipped_file = s3_resource.Object(bucket_name=bucket, key=eventFileName)
         buffer = io.BytesIO(zipped_file.get()["Body"].read())
         zipped = zipfile.ZipFile(buffer)
-
+          
         for file in zipped.namelist():
             final_file_path = file + '.extension'
             with zipped.open(file, "r") as f_in:
                 content = f_in.read().decode('utf-8')
                 print(content)
-                if (".libatlog" in file):
+                if(".libatlog" in file and logFound==False):
+                    logFound=True
                     print(content)
                     s = json.loads(content, parse_float=Decimal)
-                    eventFileName = eventFileName[:(eventFileName.rfind('/') + 1)]
-                    eventFileName = eventFileName + file
+                    eventFileName=eventFileName[:(eventFileName.rfind('/')+1)]
+                    eventFileName= eventFileName + file
                     print(eventFileName)
     else:
-        json_object = s3_client.get_object(Bucket=bucket, Key=(eventFileName))
+        json_object = s3_client.get_object(Bucket=bucket,Key=(eventFileName))
         file_reader = json_object['Body'].read().decode("utf-8")
         s = json.loads(file_reader, parse_float=Decimal)
-    # set variables for parsing
+    #set variables for parsing
     bInfo = s['BoardInformation'][0]
     sysMod = s['SystemModules']
     batDet = s['BatteryDetails']
     packDet = s['PackDetails']
-    count = 0
-    mainList = []
-    boardInfo = []
+    count=0
+    mainList=[]
+    boardInfo=[]
     sysList = []
     batList = []
     packList = []
-
+    
     boardInfo.append(bInfo['Time'])
     boardInfo.append(bInfo['SoftwareVersion'])
     boardInfo.append(bInfo['HardwareVersion'])
@@ -55,9 +56,9 @@ def lambda_handler(event, context):
     boardInfo.append(bInfo['BootloaderVersion'])
     boardInfo.append(bInfo['ModelCode'])
     boardInfo.append(bInfo['ProjectCode'])
-    # transpose values for echarts
+    #transpose values for echarts
     for j in sysMod:
-        time = []
+        time=[]
         id = []
         C1 = []
         C2 = []
@@ -77,18 +78,18 @@ def lambda_handler(event, context):
         C16 = []
         C17 = []
         C18 = []
-        T1 = []
-        T2 = []
-        T3 = []
-        T4 = []
-        T5 = []
-        Tpcb = []
-        Tfet = []
+        T1 =[]
+        T2 =[]
+        T3 =[]
+        T4 =[]
+        T5 =[]
+        Tpcb =[]
+        Tfet =[]
         CC = []
         VM = []
         listTemp = []
-        j = j['Modules']
-        if (j == []):
+        j=j['Modules']
+        if(j==[]):
             continue
         for i in j:
             time.append(i['Time'])
@@ -150,7 +151,7 @@ def lambda_handler(event, context):
         listTemp.append(CC)
         listTemp.append(VM)
         sysList.append(listTemp)
-    time = []
+    time =[]
     Vpack = []
     Ipack = []
     soc = []
@@ -163,15 +164,15 @@ def lambda_handler(event, context):
     batList.append(Vpack)
     batList.append(Ipack)
     batList.append(soc)
-
+    
     time = []
     VCmax = []
-    VCmin = []
+    VCmin= []
     Vd = []
     Tmax = []
-    Tmin = []
-    Td = []
-    Tmean = []
+    Tmin= []
+    Td=[]
+    Tmean=[]
     for j in packDet:
         time.append(j['Time'])
         VCmax.append(j['VCmax'])
@@ -189,13 +190,13 @@ def lambda_handler(event, context):
     packList.append(Tmin)
     packList.append(Td)
     packList.append(Tmean)
-
+    
     mainList.append(bInfo)
     mainList.append(sysList)
     mainList.append(batList)
     mainList.append(packList)
     jsonstr = json.dumps(mainList)
-    # save file as .json
-    eventFileName = eventFileName.replace(".libatlog", "")
-    s3_client.put_object(Body=str(jsonstr), Bucket=bucket, Key=(eventFileName + '.json'))
+    #save file as .json
+    eventFileName=eventFileName.replace(".libatlog","")
+    s3_client.put_object(Body=str(jsonstr), Bucket=bucket, Key=(eventFileName+'.json'))
     return "success"

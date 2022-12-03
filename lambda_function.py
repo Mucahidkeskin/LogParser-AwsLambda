@@ -168,7 +168,6 @@ def lambda_handler(event, context):
     Td=[]
     Tmean=[]
     E=[]
-    timeCount=0
     for j in packDet:
         time.append(j['Time'])
         VCmax.append(j['VCmax'])
@@ -181,10 +180,8 @@ def lambda_handler(event, context):
         count=0
         for error in j['E']:
             if(error==1):
-                E.append([timeCount,count])
-                print('found')
+                E.append([j['Time'],count])
             count+=1
-        timeCount+=1
     packList.append(time)
     packList.append(VCmax)
     packList.append(VCmin)

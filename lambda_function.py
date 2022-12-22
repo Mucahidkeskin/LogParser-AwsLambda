@@ -2,13 +2,14 @@ import boto3
 import json
 import io
 import zipfile
+import pandas as pd
+import bigjson
 
 from decimal import Decimal
 
 s3_client = boto3.client('s3')
 s3_resource = boto3.resource('s3')
 dynamodb_client = boto3.resource('dynamodb')
-
 def lambda_handler(event, context):
     logFound=False
     #get bucket and file name
@@ -52,6 +53,7 @@ def lambda_handler(event, context):
     
     #transpose values for echarts
     for j in sysMod:
+        print("module processing")
         time=[]
         id = []
         C1 = []
@@ -149,6 +151,7 @@ def lambda_handler(event, context):
     Vpack = []
     Ipack = []
     soc = []
+    print("bat processing")
     for j in batDet:
         time.append(j['Time'])
         Vpack.append(j['Vpack'])
@@ -168,6 +171,7 @@ def lambda_handler(event, context):
     Td=[]
     Tmean=[]
     E=[]
+    print("pack processing")
     for j in packDet:
         time.append(j['Time'])
         VCmax.append(j['VCmax'])
@@ -190,14 +194,24 @@ def lambda_handler(event, context):
     packList.append(Tmin)
     packList.append(Td)
     packList.append(Tmean)
-    print(E)
     packList.append(E)
     mainList.append(bInfo)
     mainList.append(sysList)
     mainList.append(batList)
     mainList.append(packList)
     jsonstr = json.dumps(mainList)
+    
+    
+    print("saving")
     #save file as .json
-    eventFileName=eventFileName.replace(".libatlog","")
+    eventFileName=eventFileName.replace(".libatlog","").replace(" ","_")
     s3_client.put_object(Body=str(jsonstr), Bucket=bucket, Key=(eventFileName+'.json'))
+    
+    source_key = zipName
+
+    copy_source = {'Bucket': bucket, 'Key': source_key}
+    print("renaming")
+    s3_client.copy_object(Bucket = bucket, CopySource = copy_source, Key = eventFileName + ".zip")
+    if (source_key != eventFileName+".zip"):
+        s3_client.delete_object(Bucket = bucket, Key = source_key)
     return "success"

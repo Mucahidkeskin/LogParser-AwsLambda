@@ -2,35 +2,37 @@ import boto3
 import json
 import io
 import zipfile
+import pandas as pd
+import bigjson
 
 from decimal import Decimal
 
 s3_client = boto3.client('s3')
 s3_resource = boto3.resource('s3')
 dynamodb_client = boto3.resource('dynamodb')
-
 def lambda_handler(event, context):
     logFound=False
     #get bucket and file name
     bucket = 'logbucket71500-staging'
-    eventFileName = event["queryStringParameters"]["name"].replace("%40","@")
-    print(eventFileName)
-    if (".zip" in eventFileName):
-        zipped_file = s3_resource.Object(bucket_name=bucket, key=eventFileName)
+    zipName = event["queryStringParameters"]["name"].replace("%40","@")
+    print(zipName)
+    if (".zip" in zipName):
+        zipped_file = s3_resource.Object(bucket_name=bucket, key=zipName)
         buffer = io.BytesIO(zipped_file.get()["Body"].read())
-        zipped = zipfile.ZipFile(buffer)
+        zipped = zipfile.ZipFile(buffer,'r')
         for file in zipped.namelist():
+            print(1)
             final_file_path = file + '.extension'
-            with zipped.open(file, "r") as f_in:
-                content = f_in.read().decode('utf-8')
-                print(content)
-                if(".libatlog" in file and logFound==False):
-                    logFound=True
-                    print(content)
-                    s = json.loads(content, parse_float=Decimal)
-                    eventFileName=eventFileName[:(eventFileName.rfind('/')+1)]
-                    eventFileName= eventFileName + file
-                    print(eventFileName)
+            f_in = zipped.open(file)
+            print(2)
+            if(".libatlog" in file and logFound==False):
+                print(3)
+                logFound=True
+                s = bigjson.load(f_in,encoding='utf-8')
+                print(s['BoardInformation'][0]['Time'])
+                eventFileName=zipName[:(zipName.rfind('/')+1)]
+                eventFileName= eventFileName + file
+                print(eventFileName)
     else:
         json_object = s3_client.get_object(Bucket=bucket,Key=(eventFileName))
         file_reader = json_object['Body'].read().decode("utf-8")
@@ -52,6 +54,7 @@ def lambda_handler(event, context):
     
     #transpose values for echarts
     for j in sysMod:
+        print("module processing")
         time=[]
         id = []
         C1 = []
@@ -149,6 +152,7 @@ def lambda_handler(event, context):
     Vpack = []
     Ipack = []
     soc = []
+    print("bat processing")
     for j in batDet:
         time.append(j['Time'])
         Vpack.append(j['Vpack'])
@@ -168,6 +172,7 @@ def lambda_handler(event, context):
     Td=[]
     Tmean=[]
     E=[]
+    print("pack processing")
     for j in packDet:
         time.append(j['Time'])
         VCmax.append(j['VCmax'])
@@ -190,14 +195,24 @@ def lambda_handler(event, context):
     packList.append(Tmin)
     packList.append(Td)
     packList.append(Tmean)
-    print(E)
     packList.append(E)
     mainList.append(bInfo)
     mainList.append(sysList)
     mainList.append(batList)
     mainList.append(packList)
     jsonstr = json.dumps(mainList)
+    
+    
+    print("saving")
     #save file as .json
-    eventFileName=eventFileName.replace(".libatlog","")
+    eventFileName=eventFileName.replace(".libatlog","").replace(" ","_")
     s3_client.put_object(Body=str(jsonstr), Bucket=bucket, Key=(eventFileName+'.json'))
+    
+    source_key = zipName
+
+    copy_source = {'Bucket': bucket, 'Key': source_key}
+    print("renaming")
+    s3_client.copy_object(Bucket = bucket, CopySource = copy_source, Key = eventFileName + ".zip")
+    if (source_key != eventFileName+".zip"):
+        s3_client.delete_object(Bucket = bucket, Key = source_key)
     return "success"

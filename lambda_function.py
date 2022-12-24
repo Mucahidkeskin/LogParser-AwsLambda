@@ -4,6 +4,8 @@ import io
 import zipfile
 import pandas as pd
 import bigjson
+import gc
+import ijson
 
 from decimal import Decimal
 
@@ -15,6 +17,10 @@ def lambda_handler(event, context):
     #get bucket and file name
     bucket = 'logbucket71500-staging'
     zipName = event["queryStringParameters"]["name"].replace("%40","@")
+<<<<<<< Updated upstream
+=======
+    jsonlist = []
+>>>>>>> Stashed changes
     print(zipName)
     if (".zip" in zipName):
         zipped_file = s3_resource.Object(bucket_name=bucket, key=zipName)
@@ -23,6 +29,7 @@ def lambda_handler(event, context):
         for file in zipped.namelist():
             print(1)
             final_file_path = file + '.extension'
+<<<<<<< Updated upstream
             f_in = zipped.open(file)
             print(2)
             if(".libatlog" in file and logFound==False):
@@ -33,25 +40,58 @@ def lambda_handler(event, context):
                 eventFileName=zipName[:(zipName.rfind('/')+1)]
                 eventFileName= eventFileName + file
                 print(eventFileName)
+=======
+            with zipped.open(file, "r") as f_in:
+                if(".libatlog" in file and logFound==False):
+                    logFound=True
+                    s = f_in.read().decode('utf-8')
+                    count = 0
+                    current = 1
+                    for i in range(0, len(s)):
+                        if s[i] == '[':
+                            count += 1
+                        elif s[i] == ']':
+                            count -= 1
+                            if count == 0:
+                                jsonlist.append("{"+s[current:i+1]+"}")
+                                current = i + 2
+                    del zipped_file
+                    del buffer
+                    del zipped
+                    del s
+                    del f_in
+                    gc.collect()
+                    eventFileName=zipName[:(zipName.rfind('/')+1)]
+                    eventFileName= eventFileName + file
+>>>>>>> Stashed changes
     else:
         json_object = s3_client.get_object(Bucket=bucket,Key=(eventFileName))
         file_reader = json_object['Body'].read().decode("utf-8")
         s = json.loads(file_reader, parse_float=Decimal)
     #set variables for parsing
-    bInfo=[]
-    if (s['BoardInformation']):
-        bInfo = s['BoardInformation'][0]
-    sysMod = s['SystemModules']
-    batDet = s['BatteryDetails']
-    packDet = s['PackDetails']
+    bInfo = json.loads(jsonlist[0])
+    bInfo = bInfo["BoardInformation"][0]
+    sysMod= []
+    current=18
+    for i in range(18, len(jsonlist[1])):
+        if jsonlist[1][i] == '{':
+            count += 1
+        elif jsonlist[1][i] == '}':
+            count -= 1
+            if count == 0:
+                if (jsonlist[1][i-2] != '['):
+                    sysMod.append(ijson.items(jsonlist[1][current:i+1],'Modules.item'))
+                current = i + 2
+    batDet =  ijson.items(jsonlist[2], 'BatteryDetails.item')
+    packDet = ijson.items(jsonlist[3], 'PackDetails.item')
+    del jsonlist
+    gc.collect()
+    
     count=0
     mainList=[]
     sysList = []
     batList = []
     packList = []
-    
-    
-    
     #transpose values for echarts
     for j in sysMod:
         print("module processing")
@@ -85,7 +125,6 @@ def lambda_handler(event, context):
         CC = []
         VM = []
         listTemp = []
-        j=j['Modules']
         if(j==[]):
             continue
         for i in j:
@@ -148,6 +187,8 @@ def lambda_handler(event, context):
         listTemp.append(CC)
         listTemp.append(VM)
         sysList.append(listTemp)
+    del sysMod
+    gc.collect()
     time =[]
     Vpack = []
     Ipack = []
@@ -158,6 +199,8 @@ def lambda_handler(event, context):
         Vpack.append(j['Vpack'])
         Ipack.append(j['Ipack'])
         soc.append(j['SOC'])
+    del batDet
+    gc.collect()
     batList.append(time)
     batList.append(Vpack)
     batList.append(Ipack)
@@ -187,6 +230,8 @@ def lambda_handler(event, context):
             if(error==1):
                 E.append([j['Time'],count])
             count+=1
+    del packDet
+    gc.collect()
     packList.append(time)
     packList.append(VCmax)
     packList.append(VCmin)
@@ -197,17 +242,27 @@ def lambda_handler(event, context):
     packList.append(Tmean)
     packList.append(E)
     mainList.append(bInfo)
+    del bInfo
+    gc.collect()
     mainList.append(sysList)
+    del sysList
+    gc.collect()
     mainList.append(batList)
+    del batList
+    gc.collect()
     mainList.append(packList)
+    del packList
+    gc.collect()
     jsonstr = json.dumps(mainList)
-    
+    del mainList
+    gc.collect()
     
     print("saving")
     #save file as .json
     eventFileName=eventFileName.replace(".libatlog","").replace(" ","_")
-    s3_client.put_object(Body=str(jsonstr), Bucket=bucket, Key=(eventFileName+'.json'))
-    
+    s3_client.put_object(Body=(jsonstr), Bucket=bucket, Key=(eventFileName+'.json'))
+    del jsonstr
+    gc.collect()
     source_key = zipName
 
     copy_source = {'Bucket': bucket, 'Key': source_key}

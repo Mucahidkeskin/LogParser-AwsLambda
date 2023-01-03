@@ -6,10 +6,7 @@ import pandas as pd
 import bigjson
 import gc
 import ijson
-<<<<<<< Updated upstream
-=======
 import os
->>>>>>> Stashed changes
 
 from decimal import Decimal
 
@@ -21,17 +18,6 @@ def lambda_handler(event, context):
     #get bucket and file name
     bucket = 'logbucket71500-staging'
     zipName = event["queryStringParameters"]["name"].replace("%40","@")
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
-    jsonlist = []
->>>>>>> Stashed changes
-    print(zipName)
-    if (".zip" in zipName):
-        zipped_file = s3_resource.Object(bucket_name=bucket, key=zipName)
-        buffer = io.BytesIO(zipped_file.get()["Body"].read())
-        zipped = zipfile.ZipFile(buffer,'r')
-=======
     jsonlist = []
     if (".zip" in zipName):
         zipped_file = s3_resource.Object(bucket_name=bucket, key=zipName)
@@ -43,22 +29,8 @@ def lambda_handler(event, context):
             print(zip_kb)
             return {"error":1}
         print(zip_kb)
->>>>>>> Stashed changes
         for file in zipped.namelist():
-            print(1)
             final_file_path = file + '.extension'
-<<<<<<< Updated upstream
-            f_in = zipped.open(file)
-            print(2)
-            if(".libatlog" in file and logFound==False):
-                print(3)
-                logFound=True
-                s = bigjson.load(f_in,encoding='utf-8')
-                print(s['BoardInformation'][0]['Time'])
-                eventFileName=zipName[:(zipName.rfind('/')+1)]
-                eventFileName= eventFileName + file
-                print(eventFileName)
-=======
             with zipped.open(file, "r") as f_in:
                 if(".libatlog" in file and logFound==False):
                     logFound=True
@@ -81,22 +53,14 @@ def lambda_handler(event, context):
                     gc.collect()
                     eventFileName=zipName[:(zipName.rfind('/')+1)]
                     eventFileName= eventFileName + file
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
     else:
         json_object = s3_client.get_object(Bucket=bucket,Key=(eventFileName))
         file_reader = json_object['Body'].read().decode("utf-8")
         s = json.loads(file_reader, parse_float=Decimal)
     #set variables for parsing
     bInfo = json.loads(jsonlist[0])
-<<<<<<< Updated upstream
-    bInfo = bInfo["BoardInformation"][0]
-=======
     if (bInfo["BoardInformation"]):
         bInfo = bInfo["BoardInformation"][0]
->>>>>>> Stashed changes
     sysMod= []
     current=18
     for i in range(18, len(jsonlist[1])):

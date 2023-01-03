@@ -6,6 +6,10 @@ import pandas as pd
 import bigjson
 import gc
 import ijson
+<<<<<<< Updated upstream
+=======
+import os
+>>>>>>> Stashed changes
 
 from decimal import Decimal
 
@@ -18,6 +22,7 @@ def lambda_handler(event, context):
     bucket = 'logbucket71500-staging'
     zipName = event["queryStringParameters"]["name"].replace("%40","@")
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 =======
     jsonlist = []
 >>>>>>> Stashed changes
@@ -26,6 +31,19 @@ def lambda_handler(event, context):
         zipped_file = s3_resource.Object(bucket_name=bucket, key=zipName)
         buffer = io.BytesIO(zipped_file.get()["Body"].read())
         zipped = zipfile.ZipFile(buffer,'r')
+=======
+    jsonlist = []
+    if (".zip" in zipName):
+        zipped_file = s3_resource.Object(bucket_name=bucket, key=zipName)
+        buffer = io.BytesIO(zipped_file.get()["Body"].read())
+        zipped = zipfile.ZipFile(buffer)
+        size = sum([zinfo.file_size for zinfo in zipped.filelist])
+        zip_kb = float(size) / 1000  # kB
+        if(zip_kb>300):
+            print(zip_kb)
+            return {"error":1}
+        print(zip_kb)
+>>>>>>> Stashed changes
         for file in zipped.namelist():
             print(1)
             final_file_path = file + '.extension'
@@ -63,6 +81,9 @@ def lambda_handler(event, context):
                     gc.collect()
                     eventFileName=zipName[:(zipName.rfind('/')+1)]
                     eventFileName= eventFileName + file
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
     else:
         json_object = s3_client.get_object(Bucket=bucket,Key=(eventFileName))
@@ -70,7 +91,12 @@ def lambda_handler(event, context):
         s = json.loads(file_reader, parse_float=Decimal)
     #set variables for parsing
     bInfo = json.loads(jsonlist[0])
+<<<<<<< Updated upstream
     bInfo = bInfo["BoardInformation"][0]
+=======
+    if (bInfo["BoardInformation"]):
+        bInfo = bInfo["BoardInformation"][0]
+>>>>>>> Stashed changes
     sysMod= []
     current=18
     for i in range(18, len(jsonlist[1])):
